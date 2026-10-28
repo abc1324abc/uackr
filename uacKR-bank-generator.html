@@ -1,0 +1,636 @@
+<title>uacKR 뱅크 생성기</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one working column of numbered console panels, output panel last; grids collapse to 1–2 cols on phones */
+:root {
+  --bg: #eef0ec;
+  --panel: #f9faf7;
+  --line: #c9cec4;
+  --fg: #1c2420;
+  --muted: #5d6860;
+  --accent: #b5651d;
+  --accent-ink: #ffffff;
+  --on: #2f6b4f;
+  --on-bg: #dcebe2;
+  --warn: #9a3412;
+  --warn-bg: #fbe5d9;
+  --field: #ffffff;
+  --danger: #c0262d;
+  --danger-bg: #fdeaea;
+  --display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141916; --panel: #1b221e; --line: #2e3832; --fg: #e3e8e2; --muted: #93a096;
+  --accent: #e08a3c; --accent-ink: #1a1208; --on: #7fcfa3; --on-bg: #1f3a2c;
+  --warn: #f2a07a; --warn-bg: #3a2016; --field: #10140f; --danger: #ff6b6b; --danger-bg: #3a1517; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #141916; --panel: #1b221e; --line: #2e3832; --fg: #e3e8e2; --muted: #93a096;
+  --accent: #e08a3c; --accent-ink: #1a1208; --on: #7fcfa3; --on-bg: #1f3a2c;
+  --warn: #f2a07a; --warn-bg: #3a2016; --field: #10140f; --danger: #ff6b6b; --danger-bg: #3a1517; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 28px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 18px; }
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 24px; border-bottom: 2px solid var(--fg); padding-bottom: 12px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: clamp(26px, 5vw, 36px); letter-spacing: .02em; margin: 0; line-height: 1.1; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); font-size: 13px; font-family: var(--mono); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.ph { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.ph .tag { font-family: var(--mono); font-size: 12px; color: var(--accent); letter-spacing: .08em; }
+h2 { font-family: var(--display); font-size: 19px; font-weight: 600; margin: 0; letter-spacing: .02em; }
+.ph .note { color: var(--muted); font-size: 13px; flex-basis: 100%; }
+.grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.grid.tight { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+label.f { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+label.f > span { font-size: 12px; color: var(--muted); letter-spacing: .04em; }
+label.f > span b { font-weight: 500; color: var(--fg); }
+input[type=text], input[type=number], textarea {
+  width: 100%; font: 500 14px/1.3 var(--mono); color: var(--fg); background: var(--field);
+  border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; font-variant-numeric: tabular-nums; }
+input:focus-visible, textarea:focus-visible, button:focus-visible, .chip:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+textarea { resize: vertical; min-height: 96px; font-size: 12px; line-height: 1.45; word-break: break-all; }
+.two { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+@media (max-width: 640px) { .two { grid-template-columns: 1fr; } }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button { font: 600 14px var(--body); border-radius: 3px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--field); color: var(--fg); }
+button:hover { border-color: var(--fg); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.small { font-size: 12px; padding: 5px 10px; }
+.file { position: relative; overflow: hidden; }
+.file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.status { font-size: 13px; padding: 8px 10px; border-radius: 3px; background: var(--on-bg); color: var(--on); }
+.status.bad { background: var(--warn-bg); color: var(--warn); }
+.status:empty { display: none; }
+.unlock { border-top: 1px solid var(--line); padding-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.unlock:first-of-type { border-top: 0; padding-top: 0; }
+.uh { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.uh h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.count { font-family: var(--mono); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.uh .row { margin-left: auto; }
+.chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 4px; }
+.chip { position: relative; }
+.chip input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.chip span { display: flex; gap: 6px; align-items: baseline; text-align: left; font: 500 12.5px/1.3 var(--body); padding: 6px 8px; border: 1px solid var(--line); border-radius: 3px; color: var(--muted); background: var(--field); min-height: 100%; overflow-wrap: anywhere; }
+.chip span i { font: normal 11px var(--mono); color: var(--muted); min-width: 2.2em; font-variant-numeric: tabular-nums; }
+.chip.empty, .chip.filtered { display: none; }
+.show-empty .chip.empty { display: block; }
+.show-empty .chip.empty.filtered { display: none; }
+.chip.empty span { opacity: .55; }
+.chip input:checked + span { background: var(--on-bg); color: var(--on); border-color: var(--on); }
+.chip input:checked + span i { color: var(--on); }
+fieldset.ver { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+fieldset.ver legend { font-size: 12px; color: var(--muted); letter-spacing: .04em; padding: 0; margin-bottom: 4px; width: 100%; }
+.radio { position: relative; }
+.radio input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.radio span { display: block; padding: 7px 12px; border: 1px solid var(--line); border-radius: 3px; background: var(--field); font-size: 13px; font-weight: 500; }
+.radio input:checked + span { border-color: var(--accent); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.radio:focus-within span { outline: 2px solid var(--accent); outline-offset: 1px; }
+.col { display: flex; flex-direction: column; gap: 8px; }
+.stats { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+.xp { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; min-width: 0; }
+select { width: 100%; font: 500 13px/1.3 var(--body); color: var(--fg); background: var(--field); border: 1px solid var(--line); border-radius: 3px; padding: 8px 6px; }
+details.adv { display: flex; flex-direction: column; gap: 8px; }
+details.adv label { margin-top: 8px; max-width: 360px; }
+.tablewrap { overflow-x: auto; }
+table.modes { border-collapse: collapse; width: 100%; min-width: 420px; }
+table.modes th, table.modes td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); font-weight: 500; }
+table.modes thead th { font-size: 12px; color: var(--muted); letter-spacing: .04em; font-weight: 500; }
+table.modes tbody th { font-size: 14px; white-space: nowrap; }
+table.modes td input { max-width: 140px; }
+table.modes .num { display: inline-block; width: 2.2em; font: 500 12px var(--mono); color: var(--muted); }
+table.modes tr.dim { opacity: .45; }
+.na { color: var(--muted); font-family: var(--mono); }
+.filter { max-width: 320px; font-family: var(--body) !important; }
+.check { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); cursor: pointer; }
+.danger { border: 2px solid var(--danger); background: var(--danger-bg); color: var(--danger); border-radius: 4px; padding: 12px 14px; font-weight: 600; font-size: 14px; line-height: 1.5; }
+.danger strong { display: block; font-size: 15px; margin-bottom: 2px; }
+.chip span em { font-style: normal; font: 600 10px var(--body); color: var(--danger); border: 1px solid var(--danger); border-radius: 2px; padding: 0 4px; margin-left: auto; align-self: center; }
+.tagb { font: 600 11px var(--body); color: var(--danger); border: 1px solid var(--danger); border-radius: 2px; padding: 0 4px; }
+.out { font-size: 13px; color: var(--muted); }
+.out code { font-family: var(--mono); color: var(--fg); }
+#xmlOut { min-height: 220px; }
+details summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>uacKR 뱅크 생성기</h1>
+    <p>Undead Assault Chronicles:KR · 세이브 v10 (UAC + UAC2)</p>
+  </header>
+  <div class="danger" role="alert">
+    <strong>⚠ 사용 시 발생하는 모든 불이익은 사용자 본인에게 있습니다.</strong>
+    이 프로그램은 맵 제작자나 블리자드의 공식 프로그램이 아닙니다. 뱅크 수정으로 인한 뱅크 초기화, 제재 등 어떠한 불이익도 책임지지 않습니다. 사용 전 원래 뱅크를 꼭 백업하세요.
+  </div>
+
+  <section class="panel" aria-labelledby="h-acc">
+    <div class="ph"><span class="tag">01</span><h2 id="h-acc">계정</h2>
+      <span class="note">암호화 키는 배틀넷 핸들로 만들어집니다. 뱅크를 쓸 계정의 핸들을 넣으세요. 제작자 핸들은 뱅크 폴더 이름(<code>Banks\핸들\UAC.SC2Bank</code>)입니다.</span></div>
+    <div class="two">
+      <label class="f"><span>배틀넷 핸들 <b>(필수)</b></span><input id="owner" type="text" spellcheck="false" placeholder="3-S2-1-1234567"></label>
+      <label class="f"><span>제작자 핸들 <b>(서명용)</b></span><input id="author" type="text" spellcheck="false" placeholder="비우면 서명 없이 생성"></label>
+    </div>
+    <div class="row">
+      <span class="file"><button type="button" tabindex="-1">기존 뱅크 파일 열기</button><input id="fileIn" type="file" accept=".SC2Bank,.xml,.txt" aria-label="기존 뱅크 파일 열기"></span>
+      <button type="button" id="pasteToggle">붙여넣어 불러오기</button>
+      <button type="button" id="resetBtn">빈 세이브로 초기화</button>
+    </div>
+    <div id="pasteBox" hidden class="col">
+      <textarea id="pasteIn" spellcheck="false" placeholder="UAC.SC2Bank 파일 내용을 그대로 붙여넣으세요"></textarea>
+      <div class="row"><button type="button" class="primary small" id="pasteLoad">불러오기</button></div>
+    </div>
+    <div id="loadStatus" class="status" role="status"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-stat">
+    <div class="ph"><span class="tag">02</span><h2 id="h-stat">계급 · 전적</h2>
+      <span class="note">경험치는 사병·준사관·장교 계급 체계마다 따로 쌓입니다. 계급을 고르면 그 계급의 최소 경험치가 들어갑니다.</span></div>
+    <div class="grid stats" id="statGrid"></div>
+    <details class="adv"><summary>고급 값</summary>
+      <label class="f"><span>loneWolf2 <b>맵이 아직 쓰지 않는 값입니다. 불러온 값을 그대로 두세요.</b></span><input id="s_loneWolf2" type="number" min="0" max="4294967295" inputmode="numeric"></label>
+    </details>
+  </section>
+
+  <section class="panel" aria-labelledby="h-win">
+    <div class="ph"><span class="tag">03</span><h2 id="h-win">모드별 기록</h2>
+      <span class="note">최고 난이도 클리어는 그 모드에서 깬 가장 높은 난이도 보정치(0–15)입니다.</span></div>
+    <div class="row"><button type="button" class="small" id="winMax">승리 전부 최대</button><button type="button" class="small" id="diffMax">난이도 전부 15</button></div>
+    <div class="tablewrap"><table class="modes">
+      <thead><tr><th scope="col">모드</th><th scope="col">승리 횟수</th><th scope="col">최고 난이도 클리어</th></tr></thead>
+      <tbody id="modeBody"></tbody>
+    </table></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-unl">
+    <div class="ph"><span class="tag">04</span><h2 id="h-unl">해금</h2>
+      <span class="note">항목에 마우스를 올리면 맵에 적힌 해금 조건이 보입니다. <b class="tagb">베타</b> 표시 항목은 맵이 스태프·베타테스터가 아니면 접속할 때 자동으로 꺼 버리므로, 켜 둬도 소용이 없습니다.</span></div>
+    <div class="row">
+      <button type="button" class="primary" id="allNoBeta">빈 칸 · 베타테스터 빼고 모두 활성화</button>
+    </div>
+    <div id="unlockStatus" class="status" role="status"></div>
+    <div class="row">
+      <input id="unlockFilter" type="text" class="filter" placeholder="이름이나 해금 조건으로 찾기" aria-label="해금 항목 찾기">
+      <label class="check"><input type="checkbox" id="showEmpty"> 맵에 없는 빈 칸도 보기</label>
+    </div>
+    <div id="unlocks"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-out">
+    <div class="ph"><span class="tag">05</span><h2 id="h-out">뱅크 생성</h2>
+      <span class="note">만든 내용을 <code>UAC.SC2Bank</code> 이름으로 원래 뱅크 폴더에 덮어쓰면 됩니다. 웹 링크로 열었을 때는 <code>.txt</code>로 저장되니 받은 뒤 이름 끝의 <code>.txt</code>를 지워 주세요. 내려받은 HTML 파일로 열면 <code>UAC.SC2Bank</code>로 바로 저장됩니다.</span></div>
+    <div class="row">
+      <button type="button" class="primary" id="genBtn">뱅크 만들기</button>
+      <button type="button" id="copyBtn" disabled>복사</button>
+      <button type="button" id="saveBtn" disabled hidden>.txt로 저장</button>
+    </div>
+    <div id="genStatus" class="status" role="status"></div>
+    <textarea id="xmlOut" readonly spellcheck="false" placeholder="뱅크 만들기를 누르면 여기에 파일 내용이 나옵니다"></textarea>
+    <details><summary>서명에 대해</summary>
+      <p class="out">맵은 뱅크를 읽을 때 블리자드 서명도 확인합니다. 서명에는 제작자 핸들, 배틀넷 핸들, 뱅크 이름(<code>UAC</code>)과 내용이 들어갑니다. 이 서명 공식은 아직 실제 뱅크로 확인하지 못했습니다. 기존 뱅크를 불러올 때 제작자 핸들을 넣어 두면 원본 서명과 맞는지 위 상태 표시에 나옵니다.</p>
+    </details>
+  </section>
+</div>
+
+<script>
+/* ※ 경고: 이 프로그램 사용 시 발생하는 모든 불이익(뱅크 초기화, 제재 등)은 사용자 본인에게 있습니다. */
+// ImperialBank (UAC) core — ported from MapScript.galaxy
+const UB = (() => {
+const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+const u = x => x >>> 0;
+const shl = (x, n) => u(x << (n & 31));
+const rotl = (x, n) => u((x << n) | (x >>> (32 - n)));
+
+function sha1Process(h, blk) {
+  const w = new Array(80);
+  for (let i = 0; i < 16; i++) { const b = u(blk[i]); w[i] = u((b << 24) | ((b << 8) & 0xFF0000) | ((b >>> 8) & 0xFF00) | (b >>> 24)); }
+  for (let i = 16; i < 80; i++) w[i] = rotl(w[i-3] ^ w[i-8] ^ w[i-14] ^ w[i-16], 1);
+  let [a, b, c, d, e] = h;
+  for (let i = 0; i < 80; i++) {
+    let f, k;
+    if (i < 20) { f = (b & c) | (~b & d); k = 0x5A827999; }
+    else if (i < 40) { f = b ^ c ^ d; k = 0x6ED9EBA1; }
+    else if (i < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8F1BBCDC; }
+    else { f = b ^ c ^ d; k = 0xCA62C1D6; }
+    const t = u(rotl(a, 5) + u(f) + e + k + w[i]);
+    e = d; d = c; c = rotl(b, 30); b = a; a = t;
+  }
+  [a, b, c, d, e].forEach((v, i) => h[i] = u(h[i] + v));
+}
+const sha1Init = () => [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0];
+
+// standard SHA1 over bytes -> 5 words
+function sha1Bytes(bytes) {
+  const h = sha1Init();
+  const len = bytes.length;
+  const total = ((len + 9 + 63) >> 6) << 6;
+  const buf = new Uint8Array(total); buf.set(bytes); buf[len] = 0x80;
+  const bits = len * 8;
+  buf[total-4] = (bits >>> 24) & 255; buf[total-3] = (bits >>> 16) & 255; buf[total-2] = (bits >>> 8) & 255; buf[total-1] = bits & 255;
+  for (let o = 0; o < total; o += 64) {
+    const blk = [];
+    for (let i = 0; i < 16; i++) { const p = o + i*4; blk.push(u(buf[p] | (buf[p+1] << 8) | (buf[p+2] << 16) | (buf[p+3] << 24))); }
+    sha1Process(h, blk);
+  }
+  return h;
+}
+const latin1 = s => Uint8Array.from(s, ch => ch.charCodeAt(0) & 255);
+const sha1Str = s => sha1Bytes(latin1(s));
+const hex = ws => ws.map(w => w.toString(16).toUpperCase().padStart(8, "0")).join("");
+
+function sha1Final(h, blk, length) {
+  let pos = (length % 64) >> 2;
+  const sub = (length % 4) * 8;
+  blk[pos] = u(shl(0x80, sub) | (blk[pos] & u(shl(2, sub - 1) - 1)));
+  pos++;
+  if (pos > 14) { for (; pos < 16; pos++) blk[pos] = 0; sha1Process(h, blk); pos = 0; }
+  for (; pos < 14; pos++) blk[pos] = 0;
+  const L = u(length * 8);
+  blk[14] = 0;
+  blk[15] = u((L << 24) | ((L << 8) & 0xFF0000) | ((L >>> 8) & 0xFF00) | (L >>> 24));
+  sha1Process(h, blk);
+}
+function blockHash(f, size) {
+  const h = sha1Init(), hb = new Array(16).fill(0), end = size >> 5;
+  let i = 0;
+  while (i < end) { const eob = Math.min(end - i, 16); for (let j = 0; j < eob; j++) hb[j] = f[i++]; sha1Process(h, hb); }
+  sha1Final(h, hb, end * 4);
+  return h;
+}
+
+// AES variant: Nk=5, Nr=11
+const SBOX = [];
+(() => { // generate standard AES S-box
+  let p = 1, q = 1;
+  do {
+    p = p ^ ((p << 1) & 0xFF) ^ (p & 0x80 ? 0x1B : 0);
+    q ^= q << 1; q ^= q << 2; q ^= q << 4; q &= 0xFF; if (q & 0x80) q ^= 0x09;
+    const x = q ^ ((q << 1 | q >> 7) & 0xFF) ^ ((q << 2 | q >> 6) & 0xFF) ^ ((q << 3 | q >> 5) & 0xFF) ^ ((q << 4 | q >> 4) & 0xFF);
+    SBOX[p] = (x ^ 0x63) & 0xFF;
+  } while (p !== 1);
+  SBOX[0] = 0x63;
+})();
+const GM2 = Array.from({length: 256}, (_, i) => i < 128 ? i << 1 : ((i << 1) & 0xFF) ^ 0x1B);
+const RCON = [0x8D]; { let a = 1; for (let i = 1; i < 30; i++) { RCON[i] = a; a = GM2[a]; } }
+const NK = 5, NR = 11, NKS = 4 * (NR + 1);
+const subword = (w, box) => u(box[w & 255] | (box[(w >>> 8) & 255] << 8) | (box[(w >>> 16) & 255] << 16) | (box[w >>> 24] << 24));
+const rotword = w => u((w << 24) | (w >>> 8));
+function keyExp(key) {
+  const ks = key.map(u);
+  for (let i = NK; i < NKS; i++) {
+    let t = ks[i-1];
+    if (i % NK === 0) t = u(subword(rotword(t), SBOX) ^ RCON[i / NK]);
+    ks[i] = u(ks[i-NK] ^ t);
+  }
+  return ks;
+}
+function aesCipher(ks, b) {
+  let kp = 0;
+  const ark = () => { for (let j = 0; j < 4; j++) b[j] = u(b[j] ^ ks[kp + j]); kp += 4; };
+  const sub = () => { for (let j = 0; j < 4; j++) b[j] = subword(b[j], SBOX); };
+  const shift = () => {
+    const a = u((b[0] & 0xFF) | (b[1] & 0xFF00) | (b[2] & 0xFF0000) | (b[3] & 0xFF000000));
+    const bb = u((b[1] & 0xFF) | (b[2] & 0xFF00) | (b[3] & 0xFF0000) | (b[0] & 0xFF000000));
+    const c = u((b[2] & 0xFF) | (b[3] & 0xFF00) | (b[0] & 0xFF0000) | (b[1] & 0xFF000000));
+    b[3] = u((b[3] & 0xFF) | (b[0] & 0xFF00) | (b[1] & 0xFF0000) | (b[2] & 0xFF000000));
+    b[0] = a; b[1] = bb; b[2] = c;
+  };
+  const mix = () => { for (let j = 0; j < 4; j++) { const a = b[j], g = subword(a, GM2); b[j] = u(g ^ rotword(g) ^ rotword(a) ^ rotl(a, 16) ^ rotl(a, 8)); } };
+  ark();
+  for (let r = 1; r < NR; r++) { sub(); shift(); mix(); ark(); }
+  sub(); shift(); ark();
+}
+const cryptKey = (k1, k2, k3) => [u(k1[1] ^ k2[2] ^ rotl(k3[3], 13)), u(k1[3] ^ k2[0] ^ k3[0]), u(k1[0] ^ k2[3] ^ k3[2]), u(k1[2] ^ k2[1] ^ k3[4]), u(k1[4] ^ k2[4] ^ k3[1])];
+function blockCrypt(key, f, size) {
+  const ck = u(key[0] ^ key[1] ^ key[2] ^ key[3] ^ key[4]), ks = keyExp(key), end = size >> 5;
+  for (let i = 0; i < end; i += 4) {
+    const e = [u(i), u(~i), u(i ^ ck), u((-i) ^ ck)];
+    aesCipher(ks, e);
+    f[i] = u(f[i] ^ e[1]); f[i+1] = u(f[i+1] ^ e[2]); f[i+2] = u(f[i+2] ^ e[3]); f[i+3] = u(f[i+3] ^ e[0]);
+  }
+}
+const headerKey = k => [u(0x12345678 ^ k[3]), u(k[0] ^ k[4] ^ 0x7A8B9CAD), 0x31415926, u(k[1] ^ k[2] ^ 0x42184218), 0x27182818];
+
+class BF {
+  constructor() { this.f = new Array(40).fill(0); this.pos = 0; this.len = 0; }
+  write(val, ln) {
+    let i = this.pos % 32, reg = this.pos >> 5; this.pos += ln;
+    let mask = shl(u(shl(2, ln - 1) - 1), i);
+    this.f[reg] = u((this.f[reg] & ~mask) | (shl(val, i) & mask));
+    i = 32 - i; if (i >= ln) return;
+    reg++; mask = u(shl(1, ln - i) - 1);
+    this.f[reg] = u((this.f[reg] & ~mask) | ((val >>> i) & mask));
+  }
+  read(ln) {
+    let i = this.pos % 32, reg = this.pos >> 5;
+    let v = this.f[reg] >>> i;
+    i = 32 - i;
+    if (i < ln) { v &= (1 << i) - 1; v |= shl(this.f[reg+1], i); }
+    v = u(v & u(shl(2, ln - 1) - 1));
+    this.pos += ln; return v;
+  }
+}
+function readBlock(s, ok, key) {
+  const end = s.length;
+  if (end < 28 || (end * 6 - 160) % 128 >= 6) throw new Error("블록 길이가 맞지 않습니다");
+  for (const ch of s) if (B64.indexOf(ch) < 0) throw new Error("허용되지 않는 문자가 있습니다");
+  const o = new BF();
+  for (let i = 0; i < 27; i++) o.write(B64.indexOf(s[i]), 6);
+  const hk = o.f.slice(0, 5);
+  o.f[0] = o.f[5]; o.pos = 2; o.len = ((end * 6 - 160) >> 7) << 7;
+  for (let i = 27; i < end - 1; i++) o.write(B64.indexOf(s[i]), 6);
+  o.write(B64.indexOf(s[end-1]), o.len - o.pos);
+  blockCrypt(cryptKey(ok, key, hk), o.f, o.len);
+  const h = blockHash(o.f, o.len);
+  return { bf: o, valid: h.every((v, i) => v === hk[i]) };
+}
+function writeBlock(bf, ok, key) {
+  bf.len = (bf.len + 127) & ~127;
+  for (let i = bf.len >> 5; i < bf.f.length; i++) bf.f[i] = 0;
+  const hk = blockHash(bf.f, bf.len);
+  blockCrypt(cryptKey(ok, key, hk), bf.f, bf.len);
+  let s = ""; bf.pos = 2;
+  const n = Math.floor((bf.len - 2) / 6);
+  for (let i = 0; i < n; i++) s += B64[bf.read(6)];
+  const r = bf.len - bf.pos;
+  if (r > 0) s += B64[bf.read(r) | (shl(hk[2], r) & 0x3F)];
+  bf.f[5] = bf.f[0]; for (let i = 0; i < 5; i++) bf.f[i] = hk[i];
+  bf.pos = 0; let h = "";
+  for (let i = 0; i < 27; i++) h += B64[bf.read(6)];
+  return h + s;
+}
+
+// field: [key, bits, count?, fixed?]  (count => array)
+const SCHEMA = {
+  10: { label: "v10", blocks: [
+    { name: "UAC", size: 896, fields: [
+      ["version", 9, 0, 10], ["experience", 25, 3], ["gamesPlayed", 16], ["revives", 14], ["gamesWon", 16, 15],
+      ["achievements", 1, 100], ["diffClear", 4, 14], ["recallCount", 4], ["nuke", 1, 0, 0], ["loneWolf", 32], ["loneWolf2", 32] ] },
+    { name: "UAC2", size: 896, fields: [
+      ["version2", 9, 0, 1], ["camos", 1, 199], ["decals", 1, 200], ["specialInfantry", 1, 400] ] } ] }
+};
+function blankData(ver) {
+  const d = {};
+  for (const b of SCHEMA[ver].blocks) for (const [k, , n, fx] of b.fields) d[k] = n ? Array(n).fill(0) : (fx ?? 0);
+  return d;
+}
+function parseBlock(bf, fields, d) {
+  bf.pos = 0;
+  for (const [k, bits, n] of fields) d[k] = n ? Array.from({ length: n }, () => bf.read(bits)) : bf.read(bits);
+}
+function buildBlock(size, fields, d) {
+  const bf = new BF(); bf.len = size;
+  const w = (v, n) => { v = Math.floor(Number(v) || 0); if (n === 32) bf.write(u(v), 32); else bf.write(Math.max(0, Math.min(v, 2 ** n - 1)), n); };
+  for (const [k, bits, n, fx] of fields) {
+    if (fx !== undefined) w(fx, bits);
+    else if (n) for (let i = 0; i < n; i++) w(d[k][i], bits);
+    else w(d[k], bits);
+  }
+  return bf;
+}
+function parseHeader(bf) {
+  bf.pos = 0;
+  if (bf.read(6) !== 0) throw new Error("헤더가 올바르지 않습니다");
+  const h = { savenum: bf.read(18), blocknum: bf.read(10), loadowner: bf.read(4), accountn: bf.read(4) };
+  h.accounts = Array.from({length: h.accountn}, () => [bf.read(10), bf.read(7)]);
+  return h;
+}
+function buildHeader(h) {
+  const bf = new BF(); bf.len = 42 + 17 * h.accountn;
+  bf.write(0, 6); bf.write(h.savenum, 18); bf.write(h.blocknum, 10); bf.write(h.loadowner, 4); bf.write(h.accountn, 4);
+  h.accounts.forEach(([p, l]) => { bf.write(p, 10); bf.write(l, 7); });
+  return bf;
+}
+
+// Blizzard bank signature (unverified formula)
+function signature(sections, author, player, bank) {
+  let s = author + player + bank;
+  for (const sec of Object.keys(sections).sort()) {
+    s += sec;
+    for (const key of Object.keys(sections[sec]).sort()) s += key + "string" + sections[sec][key];
+  }
+  return hex(sha1Bytes(new TextEncoder().encode(s)));
+}
+
+function decodeXML(xml) {
+  const vals = {};
+  for (const m of xml.matchAll(/<Key name="([^"]+)">\s*<Value string="([^"]*)"/g)) vals[m[1]] = m[2];
+  if (!vals.ID || !vals.HEAD || !vals.UAC) throw new Error("UAC 뱅크 형식이 아닙니다 (ID/HEAD/UAC 값이 없음)");
+  const owners = vals.ID, ok = sha1Str(owners);
+  const hb = readBlock(vals.HEAD, ok, headerKey(ok));
+  const header = parseHeader(hb.bf);
+  const main = readBlock(vals.UAC, ok, sha1Str("UAC"));
+  main.bf.pos = 0; let ver = main.bf.read(9);
+  if (ver === 100 && main.bf.len === 896) ver = 10; // 테스트 세이브
+  if (!SCHEMA[ver]) throw new Error("세이브 버전 " + ver + "은(는) 지원하지 않습니다. 최신 맵(v10) 뱅크만 불러올 수 있습니다");
+  const d = blankData(ver); let valid = hb.valid;
+  for (const b of SCHEMA[ver].blocks) {
+    if (!vals[b.name]) { valid = false; continue; }
+    const r = b.name === "UAC" ? main : readBlock(vals[b.name], ok, sha1Str(b.name));
+    valid = valid && r.valid; parseBlock(r.bf, b.fields, d);
+  }
+  const sig = (xml.match(/<Signature value="([0-9A-Fa-f]*)"/) || [])[1] || "";
+  return { owners, header, ver, data: d, valid, values: vals, signature: sig };
+}
+
+function encodeXML({ owners, savenum, ver, data, author }) {
+  const ok = sha1Str(owners), S = SCHEMA[ver], ibd = {};
+  for (const b of S.blocks) ibd[b.name] = writeBlock(buildBlock(b.size, b.fields, data), ok, sha1Str(b.name));
+  const head = writeBlock(buildHeader({ savenum: savenum % (1 << 18), blocknum: S.blocks.length, loadowner: 0, accountn: 1, accounts: [[1, owners.length]] }), ok, headerKey(ok));
+  const sig = author ? signature({ IBD: ibd, IBH: { ID: owners, HEAD: head } }, author, owners, "UAC") : "";
+  const keys = Object.keys(ibd).sort().reverse(); // 게임이 쓰는 순서(UAC2, UAC)
+  const K = (n, v) => '        <Key name="' + n + '">\n            <Value string="' + v + '"/>\n        </Key>\n';
+  return '<?xml version="1.0" encoding="utf-8"?>\n<Bank version="1">\n    <Section name="IBD">\n' + keys.map(k => K(k, ibd[k])).join("") +
+    '    </Section>\n    <Section name="IBH">\n' + K("ID", owners) + K("HEAD", head) + '    </Section>\n' +
+    (sig ? '    <Signature value="' + sig + '"/>\n' : '') + '</Bank>\n';
+}
+
+return { decodeXML, encodeXML, signature, SCHEMA, blankData };
+})();
+
+
+</script>
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const N = {"modes": {"1": "신병", "2": "보통", "3": "어려움", "4": "광란", "5": "악몽", "6": "(미사용)", "7": "생존", "8": "PMC 생존", "9": "보스 모드", "10": "클래식 생존", "11": "PMC", "12": "샌드박스", "13": "루나틱", "14": "인베이전", "15": "캠페인 메뉴"}, "ranks": {"1": [["훈련병", 0], ["이병", 400], ["일병", 1000], ["기술상병", 1550], ["상병", 2600], ["병장", 3800], ["전문하사", 5500], ["중사", 11000], ["상사", 17000], ["일등상사", 25000], ["원사", 65000], ["주임원사", 95000], ["육군주임원사", 170000], ["합참주임원사1호봉", 260000], ["합참주임원사2호봉", 375000], ["합참주임원사3호봉", 500000]], "2": [["준위1호봉", 0], ["준위2호봉", 8000], ["준위3호봉", 25000], ["준위4호봉", 65000], ["준위5호봉", 120000], ["준위6호봉", 180000], ["준위7호봉", 245000], ["준위8호봉", 315000], ["준위9호봉", 400000], ["준위10호봉", 500000]], "3": [["소위", 0], ["중위", 3500], ["대위", 12000], ["소령", 18000], ["중령", 30000], ["대령", 65000], ["준장", 100000], ["소장", 130000], ["중장", 180000], ["대장", 250000], ["원수", 500000]]}, "ach": {"1": {"n": "개발자 등장!", "u": "개발자 팀의 구성원과 함께 플레이하세요. Gold 위장 해금"}, "2": {"n": "전문구경꾼", "u": "한 게임에서 10회 이상 사망하고 승리하세요."}, "3": {"n": "신병 훈련소로 직행", "u": "캠페인 신병 난이도를 완료하세요. Woodland 문양 해금"}, "4": {"n": "완벽한 구출 작전", "u": "12명으로 시작하여 생존 모드에서 전원 탈출하세요."}, "5": {"n": "보스 절멸자", "u": "3티어 모드 없이 보스 모드 클리어"}, "6": {"n": "임무 완수", "u": "12명으로 시작하여 PMC 생존에서 소총수 모드로 전원 탈출. ABU 위장 해금"}, "7": {"n": "UAC 팬", "u": "250 게임 플레이."}, "8": {"n": "전문가", "u": "병과 전용 특성이 15개 이상 해금되었습니다."}, "9": {"n": "숙련된 팬", "u": "250 게임 승리."}, "10": {"n": "일상생활 없음", "u": "1000 게임 플레이하기."}, "11": {"n": "고장", "u": "PMC 생존 난이도에서 스미시를 박살내세요."}, "12": {"n": "천사", "u": "부활 횟수 총 1,000번."}, "13": {"n": "더럽게 쉽다", "u": "캠페인 일반 난이도를 10회 승리하세요."}, "14": {"n": "아직도 꽤 쉽다", "u": "캠페인 어려움 난이도를 10회 승리하세요."}, "15": {"n": "별로 터무니 없지만은 않다", "u": "캠페인 광란 난이도를 10회 승리하세요."}, "16": {"n": "베테랑", "u": "악몽 10회 이상 클리어"}, "17": {"n": "백만장자", "u": "어떤 계급에서든 1,000,000 경험치 달성."}, "18": {"n": "일류", "u": "모든 계급에서 가장 높은 계급장을 획득."}, "19": {"n": "옷핀 수집가", "u": "위장 30개 이상 해금."}, "20": {"n": "생존주의자", "u": "생존 모드 100회 승리. Green Diamond 문양 해금"}, "21": {"n": "스치지도 못한다", "u": "어려움 이상의 난이도 에서 한번도 맞지 않고 깨십시오. Blood 위장 해금"}, "22": {"n": "용맹", "u": "생존 모드에서 2500마리 이상 처치하고 4회 이하로 피격하여 승리하세요. Rain 위장 해금"}, "23": {"n": "락 아발란체", "u": "50+ PMC 생존 승리. Ranger 문양 해금."}, "24": {"n": "아무거나 뽑아줘", "u": "캠페인 어려움에서 T3 모드를 선택하고 전원이 무작위 병과를 선택하고 승리. Dare To Win 문양 해금"}, "25": {"n": "불가능한 임무", "u": "PMC 서바이벌 보너스 미션을 완료하세요. Cyber 위장 해금"}, "26": {"n": "우기", "u": "보스모드를 극심한 날씨와 탄약 부족 모드를 켜고 클리어하세요."}, "27": {"n": "뇌우", "u": "어려움 난이도에서 극심한 날씨(뇌우) 모드를 설정하고 완료하세요."}, "28": {"n": "동상", "u": "캠페인 어려움 난이도를 극심한 날씨 모드를 키고 클리어 하시오 (눈보라)."}, "29": {"n": "안개에 가려진", "u": "캠페인 광란 난이도를 극심한 날씨 모드를 키고 클리어 하시오 (안개)."}, "30": {"n": "기후 변화", "u": "모든 캠페인 날씨 업적을 완료하세요 (뇌우, 동상, 안개에 가려진). Lightning 위장 해금."}, "31": {"n": "저거 뭐라구요?", "u": "PMC 생존에서 RA 저거너트를 무찌르시오."}, "32": {"n": "저거 뭐라구요? 2.0", "u": "4개의 PMC 캠페인 프롤로그 임무를 완료하십시오. 레이븐소드 문양 및 데저트 스톰 위장 해금"}, "33": {"n": "정글의 유령", "u": "PMC 캠페인 1장 임무를 모두 완료하세요."}, "34": {"n": "맹수 조련", "u": "PMC 캠페인 2장 임무를 모두 완료하세요."}, "35": {"n": "시간 정지", "u": "PMC 캠페인 3장 임무를 모두 완수하시오."}, "36": {"n": "Run To The Hills", "u": "모든 PMC 캠페인 임무를 완수하시오. Bear Claw 문양 해금."}, "37": {"n": "바이오하자드", "u": "1티어와 감염 제어 불가 모드가 설정된 생존 게임 모드에서 승리하세요."}, "38": {"n": "암살자 중의 암살자", "u": "10회 이상 PMC 캠페인 승리. Emerald 위장 & Diamond 문양 해금."}, "39": {"n": "윈터 솔져", "u": "PMC 생존을 극심한 날씨(눈보라) 및 정예 PMC 모드를 설정하고 완료하세요."}, "40": {"n": "1티어 사냥꾼", "u": "50마리 이상의 거대 적을 어려움 이상의 난이도에서 잡으시오"}, "41": {"n": "환경파괴자", "u": "맵의 모든 나무를 파괴하세요"}, "42": {"n": "Unbreakable", "u": "보스 모드를 제네시스, 감염 제어 불가, 1 라이프 모드를 설정하고 완료하세요."}, "43": {"n": "보물 사냥꾼", "u": "클래식 생존을 은닉처 5곳을 모두 찾고 완료하세요."}, "44": {"n": "세이버 7R", "u": "클래식 생존을 정찰병으로 혼자서 완료하세요."}, "45": {"n": "스피드런", "u": "인베이전을 43분 내로 완료하세요."}, "46": {"n": "이 구역의 미친 자", "u": "인베이전을 저지 불가능한 1티어, 감염 제어 불가, 1 라이프 모드를 걸고 완료하세요."}, "47": {"n": "지옥의 천사", "u": "보스 모드를 Hyper Pulse 모드를 설정하고 완료하세요."}, "48": {"n": "스펙터 1", "u": "보스 모드를 제네시스, Hyper Pulse 모드를 설정하고 완료하세요."}, "49": {"n": "고독한 늑대", "u": "모든 병과로 생존 또는 PMC 생존 모드를 1인으로 탈출하세요. '-lf' 명령어로 현황 확인 가능"}, "50": {"n": "정상에 선다는 건", "u": "하이퍼 루나틱을 Hyper Pulse 모드로 설정하고, 레비아탄, 네크로시스, 오벨리스크를 모두 처치한 뒤 클리어하세요."}}, "camos": {"2": {"n": "ACUPAT", "u": "클래식 생존 모드를 완료"}, "3": {"n": "CADPAT", "u": "클래식 생존 모드를 10회 완료"}, "4": {"n": "Zedd", "u": "PMC 생존을 2인 유령/악령으로 [1티어] 모드를 걸고 완료"}, "5": {"n": "Night", "u": "캠페인 악몽 난이도를 [소총수] 모드를 걸고 에필로그를 완료"}, "6": {"n": "Olive", "u": "게임을 75회 플레이"}, "7": {"n": "Red Tiger", "u": "캠페인 악몽 난이도를 완료"}, "8": {"n": "SAS", "u": "생존 모드를 [소총수] 모드를 걸고 승리"}, "9": {"n": "Woodland", "u": "캠페인 일반 난이도를 완료"}, "10": {"n": "Woodland Tiger", "u": "캠페인 광란 난이도 완료"}, "11": {"n": "Chameleon", "u": "캠페인 악몽 난이도를 [1 라이프] 모드를 걸고 에필로그 이전까지 완료"}, "12": {"n": "OctoCamo", "u": "캠페인 광란 난이도를 [3티어] [소총수] 모드를 걸고 완료"}, "13": {"n": "Medic", "u": "전투 의무관으로 캠페인 악몽 난이도 에필로그를 완료"}, "14": {"n": "Desert", "u": "생존 모드를 2~4인으로 완료 ([3티어] 모드를 걸면 안됩니다)"}, "15": {"n": "Navy Blue", "u": "캠페인 광란 난이도를 100%로 완료"}, "16": {"n": "ABU", "u": "PMC 생존에서 12인으로 [소총수] 모드를 걸고 전원 탈출(1티어 또는 3티어 모드 허용)"}, "17": {"n": "Snow", "u": "생존 모드를 [1티어] [1 라이프] 모드를 걸고 완료"}, "18": {"n": "Rock Avalanche", "u": "PMC 생존을 2~4인으로 완료 ([3티어] 모드를 걸면 안됩니다)"}, "19": {"n": "Gold", "u": "개발자와 함께 플레이"}, "20": {"n": "Rain", "u": "생존 모드에서 메크 오퍼레이터를 제외한 병과로 2500마리 이상 처치하고 5회 이상 피격당하지 않고 완료"}, "21": {"n": "Cyber", "u": "PMC 생존 보너스 임무를 완료"}, "22": {"n": "Desert Storm", "u": "저거 뭐라구요? 20 업적 달성"}, "23": {"n": "Frost", "u": "PMC 캠페인을 완료"}, "24": {"n": "Beta Tester", "u": "베타 테스터에게 지급"}, "25": {"n": "SnowRA", "u": "PMC 생존을 2~4인으로, [1티어] 모드를 걸고 완료"}, "26": {"n": "Spectre", "u": "PMC 캠페인을 악령으로 완료"}, "27": {"n": "BDU", "u": "PMC 생존에서 [소총수] 모드를 걸고 완료 [3티어] 모드를 걸면 안됩니다"}, "28": {"n": "Black Pink", "u": "1인으로 재블린 사수 병과로 특성을 사용하지 않고 생존 모드 완료"}, "29": {"n": "Party", "u": "캠페인 악몽 난이도를 [3티어] 모드를 걸고 전원이 무작위 병과를 선택하여 에필로그 완료"}, "30": {"n": "Galactic", "u": "PMC 생존을 유령으로 1인으로 완료"}, "31": {"n": "Blood", "u": "메크 오퍼레이터를 제외한 병과로 캠페인 어려움 난이도 이상에서 피격 횟수 0으로 완료"}, "32": {"n": "Lightning", "u": "모든 캠페인 날씨 업적을 완료"}, "33": {"n": "Galaxy", "u": "PMC 생존을 [Hyper PMC] 모드를 걸고 전원이 무작위 병과를 선택하여 완료 (보너스 임무 완료)"}, "34": {"n": "Doom", "u": "캠페인 악몽 난이도를 [제네시스] 모드를 걸고 승리"}, "35": {"n": "Obsidian", "u": "병과 전용 특성을 30개 이상 해금"}, "36": {"n": "Rainbow", "u": "2~4인으로 [제네시스] [극심한 날씨(선택)] [바나나]를 걸고 보스 모드를 완료"}, "37": {"n": "Icy", "u": "보스 모드를 완료"}, "38": {"n": "Pride", "u": "루나틱 모드에서 오벨리스크를 처치하고 완료"}, "39": {"n": "HellFire", "u": "2~4인으로 보스 모드를 완료"}, "40": {"n": "Apricot", "u": "생존 모드를 1인으로 [3티어] [바나나] [극심한 날씨 (뇌우)] [Hyper Pulse] 모드를 걸고 완료"}, "41": {"n": "Leopard", "u": "PMC 캠페인을 [1 라이프] [정예 PMC] 모드를 걸고 완료"}, "42": {"n": "DND", "u": "PMC 캠페인을 [소총수] 모드를 걸고 완료"}, "43": {"n": "Sparkle", "u": "캠페인 악몽 난이도를 [1티어] [극심한 날씨 (선택)] 모드를 걸고 에필로그를 완료"}, "44": {"n": "Emerald", "u": "PMC 캠페인을 10회 완료"}, "45": {"n": "Crimson", "u": "생존 모드를 [제네시스] [감염 제어 불가] [바나나] [하이퍼펄스] 모드를 걸고 승리"}, "46": {"n": "Bio", "u": "병과 전용 특성을 15개 이상 해금"}, "47": {"n": "Holiday", "u": "연말 이벤트 기간에 접속하세요 (12.23 ~ 1.1)"}, "48": {"n": "Urban Snow", "u": "에필로그 이전까지 아무도 죽지 않고 캠페인 악몽 난이도 완료"}, "49": {"n": "RN Jesus", "u": "행운이 함께하리!"}, "50": {"n": "White Tiger", "u": "7인으로 보스 모드를 [저지 불가능한 1티어] [1 라이프] [탄약 부족] 모드를 걸고 완료"}, "51": {"n": "Ghost", "u": "PMC 캠페인을 유령으로 완료"}, "52": {"n": "Solyluna", "u": "루나틱 모드를 1인으로 완료"}, "53": {"n": "Sheriff", "u": "PMC 생존에서 12인으로 [Hyper PMC] [극심한 날씨 (뇌우)] [1 라이프] 모드를 걸고 완료"}, "54": {"n": "White", "u": "캠페인 악몽 난이도를 [1티어] [저지 불가능한 1티어] 모드를 걸고 에필로그를 완료"}, "55": {"n": "LN", "u": "캠페인 악몽 난이도를 [2티어] [극심한 날씨 (선택)] 모드를 걸고 에필로그를 완료"}, "56": {"n": "DS", "u": "캠페인 광란 난이도를 [1티어] [저지 불가능한 1티어] 모드를 걸고 다크 스카이 루트로 100% 완료"}, "57": {"n": "Breeze", "u": "생존 모드에서 [1티어] [저지 불가능한 1티어] [Hyper Pulse] 모드를 걸고 승리"}, "58": {"n": "GreenLight", "u": "생존 모드를 [1티어] [Hyper Pulse] 모드를 걸고 전원이 무작위 병과를 선택하여 완료"}, "59": {"n": "Wild", "u": "생존 모드를 2~4인으로 [1티어] [감염 제어 불가] [바나나] [극심한 날씨 (선택)] [Hyper Pulse] 모드를 걸고 완료"}, "60": {"n": "Unicorn", "u": "보스 모드를 [3티어] [극심한 날씨 (선택)] [바나나] [1 라이프] [탄약 부족] 모드를 걸고 완료"}, "61": {"n": "Neon", "u": "루나틱 모드를 완료"}, "62": {"n": "Red Steel", "u": "생존 모드를 2~4인으로 [1티어], [저지 불가능한 1티어], [극심한 날씨(뇌우)], [Hyper Pulse] 모드를 걸고 완료"}, "63": {"n": "StormTrooper", "u": "루나틱 모드를 12인으로 [라이플] 모드를 걸고 완료"}, "64": {"n": "DragonKnight", "u": "4인 이하로 보스 모드를 [Hyper Pulse]를 걸고 완료"}, "65": {"n": "Hotblooded guys", "u": "2인 모두 화염방사병으로 보스 모드를 완료"}, "66": {"n": "Allinone", "u": "4인으로 클래식 생존을 [감염 제어 불가] [바나나 병사] [극심한 날씨 (무작위)] [정예 PMC] [1티어] [저지 불가능한 1티어] [Hyper Pulse] 모드를 걸고 완료"}, "67": {"n": "Iamlegend", "u": "생존 모드를 2인으로 [아포칼립스] [Hyper Pulse] 모드를 걸고 완료"}, "68": {"n": "Singularity", "u": "하이퍼 루나틱 모드를 완료"}, "69": {"n": "DemonKing", "u": "인베이전 모드를 4인으로 [Hyper Pulse] 모드를 걸고 완료"}, "70": {"n": "Squadron", "u": "PMC 생존을 4인(소총수, 자동화기사수, 분대 지정사수, SFAAT 각 1명)으로 [정예 PMC] [저지 불가능한 1티어] [바나나 병사] 모드를 걸고 완료"}}, "decals": {"1": {"n": "Bear Claw", "u": "Run To The Hills 업적 달성"}, "2": {"n": "Blue Diamond", "u": "생존 모드 완료"}, "3": {"n": "Calvary Sabers", "u": "캠페인 악몽 난이도 에필로그를 정찰병으로 완료"}, "4": {"n": "Outlaw", "u": "생존 모드를 [1티어] 모드를 걸고 1인으로 완료"}, "5": {"n": "Rock Avalanche", "u": "PMC 생존 모드를 완료"}, "6": {"n": "Ravensword", "u": "저거 뭐라구요? 2.0 업적 달성"}, "7": {"n": "Combat Medic Badge", "u": "전투 의무관으로 부활을 40회 이상 사용"}, "8": {"n": "ZES", "u": "5인 이하로 캠페인 악몽 난이도 완료"}, "9": {"n": "Wolves", "u": "7인으로 PMC 생존을 [극심한 날씨(선택)] [탄약 부족] [Hyper PMC] 모드를 걸고 완료"}, "10": {"n": "US Flag", "u": "국기 문양 (맵에 별도 해금 조건 없음)"}, "11": {"n": "Rainbow", "u": "2~4인으로 [제네시스] [극심한 날씨(선택)] [바나나]를 걸고 보스 모드를 완료"}, "12": {"n": "Russia Flag", "u": "국기 문양 (맵에 별도 해금 조건 없음)"}, "13": {"n": "Singapore Flag", "u": "국기 문양 (맵에 별도 해금 조건 없음)"}, "14": {"n": "Italy Flag", "u": "국기 문양 (맵에 별도 해금 조건 없음)"}, "15": {"n": "Finland Flag", "u": "국기 문양 (맵에 별도 해금 조건 없음)"}, "16": {"n": "Canada Flag", "u": "국기 문양 (맵에 별도 해금 조건 없음)"}, "17": {"n": "South Korea Flag", "u": "국기 문양 (맵에 별도 해금 조건 없음)"}, "18": {"n": "Great Britain Flag", "u": "국기 문양 (맵에 별도 해금 조건 없음)"}, "19": {"n": "Germany Flag", "u": "국기 문양 (맵에 별도 해금 조건 없음)"}, "20": {"n": "Woodland", "u": "캠페인 신병 난이도 완료"}, "21": {"n": "Bronze", "u": "캠페인 보통 난이도 이상 완료"}, "22": {"n": "Silver", "u": "PMC 생존 25회 이상 완료"}, "23": {"n": "Gold", "u": "PMC 캠페인을 전투 의무관으로 완료"}, "24": {"n": "Platinum", "u": "PMC 생존을 [1티어] [극심한 날씨(선택)] [바나나] [정예 PMC] [감염 제어 불가] [탄약 부족] [Hyper PMC] 모드를 걸고 완료"}, "25": {"n": "Diamond", "u": "암살자 중의 암살자 업적 달성"}, "26": {"n": "Master", "u": "보스 모드 완료"}, "27": {"n": "GrandMaster", "u": "보스 모드를 1인으로 완료"}, "28": {"n": "Galactic", "u": "PMC 생존을 유령으로 1인으로 완료"}, "29": {"n": "Biohazard", "u": "캠페인 어려움 난이도 완료"}, "30": {"n": "Green Diamond", "u": "생존 모드를 100회 이상 완료"}, "31": {"n": "Lionheart", "u": "7인으로 생존 모드를 [1티어] [소총수] [탄약 부족] [1 라이프] 모드를 걸고 완료"}, "32": {"n": "Serpent", "u": "캠페인 악몽 난이도 10회 이상 완료"}, "33": {"n": "Krypton", "u": "2~4인으로 PMC 생존을 [1티어] [극심한 날씨(눈보라)] [감염 제어 불가] 모드를 걸고 완료"}, "34": {"n": "Earth", "u": "클래식 생존 모드를 완료"}, "35": {"n": "T1 Hunter", "u": "T1 사냥꾼 업적 달성"}, "36": {"n": "Ranger", "u": "PMC 생존 50회 이상 완료"}, "37": {"n": "Lost Pact", "u": "1인으로 PMC 캠페인 완료"}, "38": {"n": "Red Skull", "u": "업적 30개 이상 달성"}, "39": {"n": "Huntress", "u": "보스 모드를 거대 처치 50 이상으로 완료"}, "40": {"n": "Dare to Win", "u": "캠페인 어려움 난이도를 [3티어] 모드를 걸고 모든 플레이어가 랜덤을 선택해서 완료"}, "41": {"n": "Mexico Flag", "u": "국기 문양 (맵에 별도 해금 조건 없음)"}, "42": {"n": "DS", "u": "캠페인 광란에서 다크 스카이를 돕고 100% 완료"}, "43": {"n": "Australia Flag", "u": "국기 문양 (맵에 별도 해금 조건 없음)"}, "44": {"n": "Vietnam Flag", "u": "국기 문양 (맵에 별도 해금 조건 없음)"}, "45": {"n": "US/Canada Flag", "u": "국기 문양 (맵에 별도 해금 조건 없음)"}, "46": {"n": "Solyluna", "u": "루나틱 모드를 1인으로 완료"}, "47": {"n": "Umbrella", "u": "클래식 생존 모드를 [1티어] 모드를 걸고 1인으로 완료"}, "48": {"n": "Nightingale", "u": "4인으로 전원이 전투 의무관, 항공구조사, 응급구조사 중 하나로 생존 모드를 [1티어] [Hyper Pulse] [1 라이프]를 걸고 완료"}, "49": {"n": "InvincibleSquad", "u": "4인 이하로 보스 모드를 [제네시스] [Hyper Pulse]를 걸고 완료"}, "50": {"n": "OverTechnology", "u": "4인으로 베사니아, 사이보그, 기술자, 메크 오퍼레이터를 이용해 보스 모드를 완료"}, "51": {"n": "DeadZone", "u": "3인으로 합동최종공격통제관, 화력 지원 전문가, 궤도 지원 전문가를 이용해 보스 모드를 [Hyper Pulse]를 걸고 완료"}, "52": {"n": "Blackhole", "u": "캠페인 악몽 난이도를 1인으로 완료"}, "53": {"n": "SuperBanana", "u": "12인으로 전투 공병, 메크 오퍼레이터, 기술자, 궤도 지원 전문가, 특공대, 소대장 또는 안보지원자문팀, 분대 지정사수 2명, 악령, 저격수, 항공구조사, 화염방사병 구성으로 보스 모드를 [제네시스] [Hyper Pulse] 모드를 걸고 완료"}, "54": {"n": "Back-Handed Men", "u": "보스 모드를 2인 모두 분대 지정사수로 완료"}, "55": {"n": "Badlands", "u": "생존 모드를 2인 이하로 [1티어] [Hyper Pulse] 모드를 걸고 감염도 3 이하로 완료"}, "56": {"n": "Wraith", "u": "2인 이하 보스 모드를 아무런 아이템을 습득, 사용하지 않고 클리어"}}, "si": {"1": {"n": "Synthesizer", "u": "사병 경험치 1 · 준사관 1 · 장교 1"}, "2": {"n": "Tough As Nails", "u": "사병 경험치 1 · 준사관 0 · 장교 1"}, "3": {"n": "Quick Thinking", "u": "사병 경험치 3,100 · 준사관 1 · 장교 1"}, "4": {"n": "Energetic", "u": "사병 경험치 4,200 · 준사관 1 · 장교 1"}, "5": {"n": "Hawkeye", "u": "사병 경험치 8,000 · 준사관 1,500 · 장교 1,800"}, "6": {"n": "Always Ready", "u": "사병 경험치 13,500 · 준사관 5,000 · 장교 0"}, "7": {"n": "Twinkle Toes", "u": "사병 경험치 20,000 · 준사관 15,000 · 장교 0"}, "8": {"n": "Pure Blood", "u": "사병 경험치 16,000 · 준사관 12,000 · 장교 13,000"}, "9": {"n": "Intellectual", "u": "사병 경험치 0 · 준사관 4,000 · 장교 0"}, "10": {"n": "Born To Lead", "u": "사병 경험치 0 · 준사관 0 · 장교 15,000"}, "11": {"n": "Barbaric", "u": "사병 경험치 25,000 · 준사관 12,000 · 장교 19,000"}, "12": {"n": "Instructor", "u": "사병 경험치 0 · 준사관 0 · 장교 45,000"}, "13": {"n": "Impatient", "u": "사병 경험치 50,000 · 준사관 35,000 · 장교 40,000"}, "14": {"n": "Nimble", "u": "사병 경험치 26,500 · 준사관 20,000 · 장교 20,000"}, "15": {"n": "Power User", "u": "사병 경험치 0 · 준사관 11,000 · 장교 0"}, "16": {"n": "Whiz Kid", "u": "사병 경험치 15,000 · 준사관 6,000 · 장교 14,000"}, "17": {"n": "Reactive Armor", "u": "사병 경험치 0 · 준사관 34,000 · 장교 35,000"}, "18": {"n": "Lucky", "u": "사병 경험치 125,000 · 준사관 100,000 · 장교 0"}, "19": {"n": "Blood Lust", "u": "사병 경험치 95,000 · 준사관 0 · 장교 95,000"}, "20": {"n": "Veteran", "u": "사병 경험치 170,000 · 준사관 120,000 · 장교 130,000"}, "21": {"n": "Light Armor", "u": "사병 경험치 50,000 · 준사관 50,000 · 장교 50,000"}, "22": {"n": "Heavy Armor", "u": "사병 경험치 20,000 · 준사관 20,000 · 장교 20,000"}, "23": {"n": "Combat Load", "u": "사병 경험치 90,000 · 준사관 80,000 · 장교 85,000"}, "24": {"n": "Marksman", "u": "사병 경험치 5,500 · 준사관 0 · 장교 0"}, "25": {"n": "Siphon", "u": "사병 경험치 67,500 · 준사관 35,000 · 장교 48,000"}, "26": {"n": "Ghillie Suit", "u": "사병 경험치 95,000 · 준사관 95,000 · 장교 95,000"}, "27": {"n": "Self-Sufficient", "u": "사병 경험치 5,000 · 준사관 1 · 장교 1"}, "28": {"n": "Energy Shot", "u": "사병 경험치 72,000 · 준사관 50,000 · 장교 40,000"}, "29": {"n": "Capacitor", "u": "사병 경험치 29,000 · 준사관 18,000 · 장교 18,000"}, "30": {"n": "Plentiful", "u": "사병 경험치 65,000 · 준사관 50,000 · 장교 70,000"}, "31": {"n": "Autodidact", "u": "사병 경험치 11,000 · 준사관 5,500 · 장교 5,500"}, "32": {"n": "IFF Module", "u": "사병 경험치 10,000 · 준사관 4,500 · 장교 4,500"}, "33": {"n": "Oxygen Mask", "u": "사병 경험치 29,000 · 준사관 16,000 · 장교 23,000"}, "34": {"n": "Quartermaster", "u": "사병 경험치 95,000 · 준사관 0 · 장교 0"}, "35": {"n": "Teleporter", "u": "사병 경험치 160,000 · 준사관 150,000 · 장교 160,000"}, "36": {"n": "Generative Armor", "u": "사병 경험치 140,000 · 준사관 139,000 · 장교 0"}, "38": {"n": "Operator Overloading", "u": "사병 경험치 0 · 준사관 150,000 · 장교 135,000"}, "39": {"n": "Saboteur", "u": "사병 경험치 0 · 준사관 0 · 장교 180,000"}, "40": {"n": "Chivalric", "u": "사병 경험치 150,000 · 준사관 0 · 장교 0"}, "41": {"n": "Combat Knife", "u": "사병 경험치 155,000 · 준사관 167,500 · 장교 165,000"}, "51": {"n": "Battle Buddy", "u": "캠페인 악몽 에필로그 1회 완료"}, "52": {"n": "Big Game Hunter", "u": "보스 모드 10회 완료"}, "53": {"n": "Discipline", "u": "클래식 생존 10회 완료"}, "54": {"n": "Finesse", "u": "4인 이하로 시작하여 생존 모드를 [1티어] [Hyper Pulse]를 걸고 완료"}, "55": {"n": "Polarity", "u": "루나틱 모드를 완료"}, "56": {"n": "Fire Armor", "u": "인베이전을 [Hyper Pulse] 모드로 완료"}, "57": {"n": "Co-Research Project", "u": "베타테스트 조정 중"}, "61": {"n": "Grenadier", "u": "소총수 병과로 캠페인 악몽 에필로그 완료"}, "62": {"n": "Advanced Warfighter", "u": "보스 모드를 [소총수] 모드로 완료 (AW, ER 특성 사용자 0명)"}, "131": {"n": "Expert Marksman", "u": "캠페인 악몽 난이도를 [소총수] 모드를 걸고 에필로그를 완료"}, "63": {"n": "Blood in Blood Out", "u": "전투 의무관 병과로 캠페인 악몽 에필로그 완료"}, "64": {"n": "Emergency Response", "u": "보스 모드를 [소총수] 모드로 완료 (AW, ER 특성 사용자 0명)"}, "132": {"n": "Drug Synthesis", "u": "베타테스트 조정 중"}, "65": {"n": "Heavy Weapons Training", "u": "자동화기사수 병과로 캠페인 악몽 에필로그 완료"}, "66": {"n": "Suppressive Fire", "u": "자동화기사수 병과로 캠페인 악몽 에필로그를 [2티어] [극심한 날씨(선택)] 모드로 완료 (HT 특성 필요)"}, "67": {"n": "Barrier", "u": "화염방사병 병과로 캠페인 악몽 에필로그 완료"}, "68": {"n": "Pyromaniac", "u": "2~4인으로 화염방사병 병과로 보스 모드를 사망 0회로 완료"}, "134": {"n": "Ignis 3.0X", "u": "화염방사병 병과로 클래식 생존 모드를 [정예 PMC] 모드를 걸고 모든 이그니스를 처치한 후 탈출"}, "69": {"n": "Defender", "u": "진압병 병과로 캠페인 악몽 에필로그 완료"}, "70": {"n": "Crowd Control", "u": "1인으로 진압병 병과로 PMC 생존을 [1티어] [정예 PMC] 모드를 걸고 완료"}, "71": {"n": "Steel Saber", "u": "정찰병 병과로 캠페인 악몽 에필로그 완료"}, "72": {"n": "Reconnaissance Equipments", "u": "정찰병 병과로 PMC 생존 모드를 [Hyper PMC]를 걸고 탈출 (PMC 생존 10회 이상 완료, ST 특성 필요)"}, "136": {"n": "ReconnaissanceInForce", "u": ""}, "73": {"n": "Scouter", "u": "분대 지정사수 병과로 캠페인 악몽 에필로그 완료"}, "74": {"n": "Advanced Ballistics", "u": "분대 지정사수 병과로 PMC 생존을 Hyper PMC를 걸고 탈출 (PMC 생존 10회 이상 완료, SC 특성 필요)"}, "137": {"n": "HVT Expert", "u": "분대 지정사수 병과로 보스 모드를 [제네시스] [Hyper Pulse] 모드를 걸고 완료"}, "75": {"n": "High Explosive", "u": "재블린 사수 병과로 캠페인 악몽 에필로그 완료"}, "76": {"n": "Anti Tank", "u": "1인으로 재블린 사수 병과로 특성을 사용하지 않고 생존 모드 완료"}, "138": {"n": "Laser Guide", "u": "1인으로 재블린 사수 병과로 대전차 로켓이 한번도 빗나가지 않고 생존 모드 완료 (대전차 로켓 최소 1회 이상 사용 필요)"}, "77": {"n": "Inspirational", "u": "소대장 병과로 캠페인 악몽 에필로그 완료"}, "78": {"n": "AO Commander", "u": "소대장 병과로 캠페인 악몽 에필로그를 [2티어] [극심한 날씨(선택)] 모드로 완료 (IR 특성 필요)"}, "139": {"n": "전략 핵 프로토콜", "u": "조건 베타"}, "79": {"n": "Loadout", "u": "전투 공병 병과로 캠페인 악몽 에필로그 완료"}, "80": {"n": "Ghost in the Machine", "u": "전투 공병 병과로 보스 모드 완료 (LO 특성 필요)"}, "140": {"n": "Demolitionist", "u": "베타테스트 조정 중"}, "81": {"n": "Overclock", "u": "사이보그 병과로 캠페인 악몽 에필로그 완료"}, "82": {"n": "Systems Restore Module", "u": "사이보그 병과로 캠페인 악몽 에필로그를 [1티어] [극심한 날씨(선택)] 모드로 완료 (OV 특성 필요)"}, "83": {"n": "Energy Efficient", "u": "유령 병과로 캠페인 악몽 에필로그 완료"}, "84": {"n": "Crysis Suit", "u": "1인으로 유령 병과로 PMC 생존 완료"}, "142": {"n": "Unauthorized Modification", "u": "베타테스트 조정 중"}, "85": {"n": "Heavy Artillery", "u": "화력 지원 전문가 병과로 캠페인 악몽 에필로그 완료"}, "86": {"n": "Radio Man", "u": "2인 이하로 시작하여 화력 지원 전문가 병과로 생존 모드를 [1티어] [Hyper Pulse]를 걸고 사망 0회로 탈출"}, "143": {"n": "Time On Target", "u": "베타테스트 조정 중"}, "87": {"n": "Survivalist", "u": "특공대 병과로 캠페인 악몽 에필로그 완료"}, "88": {"n": "Chronosphere", "u": "특공대 병과로 보스 모드를 [Hyper Pulse] 모드를 걸고 완료"}, "144": {"n": "Special Force", "u": "베타테스트 조정 중"}, "89": {"n": "Wave Amplifier", "u": "에너지 화기 전문가 병과로 캠페인 악몽 에필로그 완료"}, "90": {"n": "Unstable Energy", "u": "베타테스트 조정 중"}, "91": {"n": "Phantasm", "u": "악령 병과로 캠페인 악몽 에필로그 완료"}, "92": {"n": "Perfect Sniper", "u": "2~4인으로 악령 병과로 보스 모드를 사망 0회로 완료"}, "93": {"n": "Enhanced Scanner", "u": "궤도 지원 전문가 병과로 캠페인 악몽 에필로그 완료"}, "94": {"n": "Orbital Tracker", "u": "2~4인으로 궤도 지원 전문가 병과로 보스 모드를 사망 0회로 완료"}, "158": {"n": "EyeInTheSky", "u": "베타테스트 조정 중"}, "95": {"n": "Steel Barrels", "u": "중화기 사수 병과로 캠페인 악몽 에필로그 완료"}, "96": {"n": "Precise Aim", "u": "중화기 사수 병과로 캠페인 악몽 에필로그를 [1티어] [극심한 날씨(선택)] 모드로 완료 (SB 특성 필요)"}, "97": {"n": "Field Tuning", "u": "메크 오퍼레이터 병과로 캠페인 악몽 에필로그 완료"}, "98": {"n": "Custom Mods", "u": ""}, "99": {"n": "Skilled Weaponry", "u": "용병 병과로 캠페인 악몽 에필로그 완료"}, "100": {"n": "Skilled Marksman", "u": "2~4인으로 용병 병과로 보스 모드를 사망 0회로 완료"}, "101": {"n": "Chemical Efficient", "u": "화학병 병과로 캠페인 악몽 에필로그 완료"}, "102": {"n": "Unverified Chemicals", "u": "6인 이하로 시작하여 화학병 병과로 [제네시스]를 걸고 보스 모드를 사망 0회로 완료"}, "103": {"n": "Additional Mounting", "u": "합동최종공격통제관 병과로 캠페인 악몽 에필로그 완료"}, "104": {"n": "AC-130 Gunship", "u": "2인 이하로 시작하여 합동최종공격통제관 병과로 보스 모드를 사망 0회로 완료"}, "105": {"n": "Covert Ops", "u": "저격수 병과로 캠페인 악몽 에필로그 완료"}, "106": {"n": "Clairvoyant", "u": "저격수 병과로 캠페인 악몽 에필로그를 [1티어] [극심한 날씨(선택)] 모드로 완료 (CO 특성 필요)"}, "153": {"n": "Sharpness Artist", "u": "베타테스트 조정 중"}, "107": {"n": "Quicksilver", "u": "항공구조사 병과로 캠페인 악몽 에필로그 완료"}, "108": {"n": "Evacuation Lead", "u": "4인 이하로 시작하여 항공구조사 병과로 클래식 생존을 [2티어] [바나나 병사]를 걸고 사망 0회로 탈출"}, "111": {"n": "Photon Shield", "u": "베사니아 3.0X 병과로 캠페인 악몽 에필로그 완료"}, "112": {"n": "Multiple Launcher", "u": "4인 이하로 시작하여 베사니아 3.0X 병과로 PMC 생존을 [1티어] 모드를 걸고 사망 0회로 완료"}, "155": {"n": "ThermalSurge", "u": "7인 보스모드를 [저지불가능한 1티어] [원라이프] [탄약 부족]를 걸고 사망 0회로 클리어"}, "113": {"n": "Mass-Production Type", "u": "기술자 병과로 캠페인 악몽 에필로그 완료"}, "114": {"n": "Energy Discharge", "u": "인베이전을 [극심한 날씨 (뇌우)] [Hyper Pulse] 모드로 완료"}, "115": {"n": "Suppressor", "u": "산탄총수 병과로 캠페인 악몽 에필로그 완료"}, "116": {"n": "Simple Cartridge", "u": "7인 이하로 시작하여 보스 모드를 [탄약 부족] 모드를 걸고 완료"}, "157": {"n": "CloseQuartersBattle", "u": "베타테스트 조정 중"}, "117": {"n": "Fast Recall", "u": "안보 지원 자문팀 병과로 캠페인 악몽 에필로그 완료"}, "118": {"n": "Advanced Tactics", "u": "베타테스트 조정 중"}, "119": {"n": "신속교전절차", "u": "조건 베타"}, "120": {"n": "증폭 탄두", "u": "조건 베타"}, "121": {"n": "Stable Drugs", "u": "응급구조사 병과로 캠페인 악몽 에필로그 완료"}, "125": {"n": "AntibodyoverexpressioN", "u": "조건 베타"}, "123": {"n": "Run And Gun", "u": ""}, "127": {"n": "TrackingadhesivE", "u": "조건 베타"}, "129": {"n": "Anti-Air Equipment(AA)", "u": "조건 베타"}, "164": {"n": "Tactical Strike(TK)", "u": "베타테스트 조정 중"}, "159": {"n": "Satellite Surveillance(SL)", "u": "조건 베타"}, "160": {"n": "FrostBite", "u": "조건 베타"}, "161": {"n": "Orbital Station", "u": "조건 베타"}, "162": {"n": "Another Option", "u": "조건 베타"}, "163": {"n": "Field Expert", "u": "조건 베타"}}, "heroes": {"1": "소총수", "2": "전투 의무관", "3": "자동화기사수", "4": "화염방사병", "5": "진압병", "6": "정찰병", "7": "분대 지정사수", "8": "재블린 사수", "9": "소대장", "10": "산탄총수", "11": "전투 공병", "12": "사이보그", "13": "유령", "14": "저격수", "15": "중화기 사수", "16": "에너지 화기 전문가", "17": "특공대", "18": "화학병", "19": "화력 지원 전문가", "20": "용병", "21": "베사니아 3.0X", "22": "기술자", "23": "악령", "24": "메크 오퍼레이터", "25": "궤도 지원 전문가", "26": "합동최종공격통제관", "27": "항공구조사"}};
+const VER = 10, S = UB.SCHEMA[VER];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const XP = [["사병", 1], ["준사관", 2], ["장교", 3]];
+const GROUPS = [
+  // key, title, first number, names table
+  ["achievements", "업적", 1, N.ach],
+  ["camos", "위장(카모)", 2, N.camos],
+  ["decals", "데칼(문양)", 1, N.decals],
+  ["specialInfantry", "특수병과 특성", 1, N.si],
+  ["loneWolfBits", "솔로 생존 클리어 (병과별)", 1, Object.fromEntries(Object.entries(N.heroes).map(([k, v]) => [k, { n: v, u: "이 병과로 생존 모드를 1인 클리어한 기록 (업적 '외로운 늑대' 조건)" }]))]
+];
+const HERO_BITS = 27;
+// 맵의 gf_BetaTestingUnlocks (TriggerLibs/MOS/BetaTest.galaxy): 스태프·베타테스터 외에는 접속 시 강제로 꺼지는 항목
+const BETA = { camos: [24], specialInfantry: [57, 90, 98, 118, 119, 120, 125, 127, 129, 132, 139, 140, 142, 143, 144, 153, 157, 158, 159, 160, 161, 162, 163, 164] };
+const isBeta = (k, no) => (BETA[k] || []).includes(no);
+const sizeOf = k => k === "loneWolfBits" ? HERO_BITS : S.blocks.flatMap(b => b.fields).find(f => f[0] === k)[2];
+let savenum = 0, lwHigh = 0, lastXml = "", outXml = "";
+
+// ---------- render ----------
+function rankOptions(set) {
+  return N.ranks[set].map(([name, xp], i) => `<option value="${xp}">${esc(name)} · ${xp.toLocaleString()}</option>`).join("");
+}
+$("statGrid").innerHTML = XP.map(([name, set], i) => `
+  <div class="xp">
+    <label class="f"><span>${name} 경험치 <b>최대 33,554,431</b></span><input id="xp_${i}" type="number" min="0" max="33554431" inputmode="numeric"></label>
+    <label class="f"><span>계급</span><select id="rk_${i}" aria-label="${name} 계급">${rankOptions(set)}</select></label>
+  </div>`).join("") + `
+  <label class="f"><span>플레이 판수 <b>최대 65,535</b></span><input id="s_gamesPlayed" type="number" min="0" max="65535" inputmode="numeric"></label>
+  <label class="f"><span>부활 횟수 <b>최대 16,383</b></span><input id="s_revives" type="number" min="0" max="16383" inputmode="numeric"></label>
+  <label class="f"><span>리콜 횟수 <b>최대 15</b></span><input id="s_recallCount" type="number" min="0" max="15" inputmode="numeric"></label>`;
+const rankFor = (set, xp) => { let v = 0; for (const [, min] of N.ranks[set]) if (xp >= min) v = min; return v; };
+XP.forEach(([, set], i) => {
+  $("xp_" + i).addEventListener("input", () => { $("rk_" + i).value = rankFor(set, Number($("xp_" + i).value) || 0); });
+  $("rk_" + i).addEventListener("change", () => { $("xp_" + i).value = $("rk_" + i).value; });
+});
+
+$("modeBody").innerHTML = Object.entries(N.modes).map(([i, name]) => {
+  const unused = name === "(미사용)";
+  return `<tr${unused ? ' class="dim"' : ""}><th scope="row"><span class="num">${i}</span>${esc(name)}</th>
+    <td><input id="w_${i - 1}" type="number" min="0" max="65535" inputmode="numeric" aria-label="${esc(name)} 승리 횟수"></td>
+    <td>${i <= 14 ? `<input id="d_${i - 1}" type="number" min="0" max="15" inputmode="numeric" aria-label="${esc(name)} 최고 난이도 클리어">` : '<span class="na">–</span>'}</td></tr>`;
+}).join("");
+
+$("unlocks").innerHTML = GROUPS.map(([key, title, start, names]) => {
+  const n = sizeOf(key); let named = 0, chips = "";
+  for (let i = 0; i < n; i++) {
+    const no = start + i, info = names[no];
+    if (info) named++;
+    const beta = isBeta(key, no);
+    chips += `<label class="chip${info ? "" : " empty"}${beta ? " beta" : ""}" ${info ? `title="${esc(info.u || "해금 조건 정보 없음")}"` : ""} data-name="${esc(info ? info.n : "")}">
+      <input type="checkbox" id="u_${key}_${i}" data-k="${key}"><span><i>${no}</i>${info ? esc(info.n) : "빈 칸"}${beta ? '<em>베타</em>' : ""}</span></label>`;
+  }
+  return `<div class="unlock" data-group="${key}"><div class="uh"><h3>${title}</h3><span class="count" id="c_${key}"></span>
+    <div class="row"><button type="button" class="small" data-all="${key}">전체 해금</button><button type="button" class="small" data-none="${key}">전체 해제</button></div></div>
+    <div class="chips">${chips}</div></div>`;
+}).join("");
+
+const isNamed = (k, i) => { const g = GROUPS.find(x => x[0] === k); return !!g[3][g[2] + i]; };
+function count(key) {
+  let c = 0, t = 0;
+  for (let i = 0; i < sizeOf(key); i++) if (isNamed(key, i)) { t++; c += $(`u_${key}_${i}`).checked; }
+  $(`c_${key}`).textContent = `${c} / ${t}`;
+}
+$("unlocks").addEventListener("change", e => { if (e.target.dataset.k) count(e.target.dataset.k); });
+$("unlocks").addEventListener("click", e => {
+  const k = e.target.dataset.all || e.target.dataset.none; if (!k) return;
+  for (let i = 0; i < sizeOf(k); i++) if (isNamed(k, i) || e.target.dataset.none) $(`u_${k}_${i}`).checked = !!e.target.dataset.all;
+  count(k);
+});
+$("allNoBeta").onclick = () => {
+  let on = 0;
+  GROUPS.forEach(([k, , start]) => {
+    for (let i = 0; i < sizeOf(k); i++) {
+      if (!isNamed(k, i)) continue;
+      const beta = isBeta(k, start + i);
+      $(`u_${k}_${i}`).checked = !beta; if (!beta) on++;
+    }
+    count(k);
+  });
+  setStatus($("unlockStatus"), `빈 칸과 베타테스터 항목을 뺀 ${on}개를 모두 켰습니다. 베타테스터 항목은 꺼 두었습니다.`);
+};
+$("showEmpty").addEventListener("change", () => $("unlocks").classList.toggle("show-empty", $("showEmpty").checked));
+$("unlockFilter").addEventListener("input", () => {
+  const q = $("unlockFilter").value.trim().toLowerCase();
+  document.querySelectorAll("#unlocks .chip").forEach(c => { c.classList.toggle("filtered", !!q && !(c.dataset.name.toLowerCase().includes(q) || (c.title || "").toLowerCase().includes(q))); });
+});
+$("winMax").onclick = () => { for (let i = 0; i < 15; i++) if (N.modes[i + 1] !== "(미사용)") $("w_" + i).value = 65535; };
+$("diffMax").onclick = () => { for (let i = 0; i < 14; i++) if (N.modes[i + 1] !== "(미사용)") $("d_" + i).value = 15; };
+
+// ---------- data <-> form ----------
+function fill(d) {
+  XP.forEach(([, set], i) => { $("xp_" + i).value = d.experience[i]; $("rk_" + i).value = rankFor(set, d.experience[i]); });
+  ["gamesPlayed", "revives", "recallCount"].forEach(k => $("s_" + k).value = d[k]);
+  $("s_loneWolf2").value = d.loneWolf2 >>> 0;
+  d.gamesWon.forEach((v, i) => $("w_" + i).value = v);
+  d.diffClear.forEach((v, i) => $("d_" + i).value = v);
+  const lw = d.loneWolf >>> 0; lwHigh = (lw & ~((1 << HERO_BITS) - 1)) >>> 0;
+  d.loneWolfBits = [...Array(HERO_BITS)].map((_, i) => (lw >>> i) & 1);
+  GROUPS.forEach(([k]) => { d[k].forEach((v, i) => $(`u_${k}_${i}`).checked = !!v); count(k); });
+}
+function collect() {
+  const d = UB.blankData(VER), num = id => Number($(id).value) || 0;
+  d.experience = [0, 1, 2].map(i => num("xp_" + i));
+  ["gamesPlayed", "revives", "recallCount", "loneWolf2"].forEach(k => d[k] = num("s_" + k));
+  d.gamesWon = d.gamesWon.map((_, i) => num("w_" + i));
+  d.diffClear = d.diffClear.map((_, i) => num("d_" + i));
+  GROUPS.forEach(([k]) => d[k] = [...Array(sizeOf(k))].map((_, i) => $(`u_${k}_${i}`).checked ? 1 : 0));
+  d.loneWolf = (lwHigh | d.loneWolfBits.reduce((a, b, i) => a | (b << i), 0)) >>> 0; delete d.loneWolfBits;
+  return d;
+}
+const setStatus = (el, msg, bad) => { el.textContent = msg; el.classList.toggle("bad", !!bad); };
+
+function load(xml, label) {
+  lastXml = xml;
+  try {
+    const r = UB.decodeXML(xml);
+    $("owner").value = r.owners; savenum = r.header.savenum; fill(r.data);
+    let msg = `${label}: ${r.owners} · 저장 ${savenum.toLocaleString()}회 · 무결성 ${r.valid ? "정상" : "손상"}`;
+    const author = $("author").value.trim();
+    if (author && r.signature) {
+      const sec = { IBD: {}, IBH: { ID: r.owners, HEAD: r.values.HEAD } };
+      for (const k of Object.keys(r.values)) if (k !== "ID" && k !== "HEAD") sec.IBD[k] = r.values[k];
+      msg += UB.signature(sec, author, r.owners, "UAC") === r.signature.toUpperCase() ? " · 서명 공식 일치 확인" : " · 서명 불일치 (제작자 핸들을 확인하세요)";
+    }
+    setStatus($("loadStatus"), msg, !r.valid);
+  } catch (e) { setStatus($("loadStatus"), "불러오지 못했습니다: " + e.message, true); }
+}
+$("fileIn").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  const rd = new FileReader(); rd.onload = () => load(String(rd.result), f.name); rd.readAsText(f); e.target.value = "";
+});
+$("pasteToggle").onclick = () => { $("pasteBox").hidden = !$("pasteBox").hidden; };
+$("pasteLoad").onclick = () => load($("pasteIn").value, "붙여넣은 뱅크");
+$("author").addEventListener("change", () => { if (lastXml) load(lastXml, "불러온 뱅크"); });
+$("resetBtn").onclick = () => { fill(UB.blankData(VER)); savenum = 0; lwHigh = 0; setStatus($("loadStatus"), "빈 세이브로 초기화했습니다."); };
+
+$("genBtn").onclick = () => {
+  const owner = $("owner").value.trim();
+  if (!/^\d-S2-\d-\d+$/.test(owner)) { setStatus($("genStatus"), "배틀넷 핸들 형식이 아닙니다. 예: 3-S2-1-1234567", true); return; }
+  try {
+    const author = $("author").value.trim();
+    outXml = UB.encodeXML({ owners: owner, savenum: savenum + 1, ver: VER, data: collect(), author });
+    const chk = UB.decodeXML(outXml);
+    $("xmlOut").value = outXml; $("copyBtn").disabled = false; $("saveBtn").disabled = false;
+    setStatus($("genStatus"), `생성 완료 · 다시 풀어 검증 ${chk.valid ? "통과" : "실패"} · ${author ? "서명 포함" : "서명 없음 (제작자 핸들을 넣으면 포함)"}`, !chk.valid);
+  } catch (e) { setStatus($("genStatus"), "생성하지 못했습니다: " + e.message, true); }
+};
+$("copyBtn").onclick = async () => {
+  try { await navigator.clipboard.writeText(outXml); setStatus($("genStatus"), "복사했습니다. 메모장에 붙여넣고 UAC.SC2Bank 이름으로 저장하세요."); }
+  catch { $("xmlOut").focus(); $("xmlOut").select(); setStatus($("genStatus"), "자동 복사가 막혀 있어 내용을 선택해 두었습니다. Ctrl+C로 복사하세요.", true); }
+};
+let downloads = null;
+const standalone = !window.claude;
+if (standalone) { $("saveBtn").hidden = false; $("saveBtn").textContent = "UAC.SC2Bank 저장"; }
+else if (window.claude.use) window.claude.use("downloads").then(d => { downloads = d; if (d) $("saveBtn").hidden = false; }).catch(() => {});
+$("saveBtn").onclick = async () => {
+  if (standalone) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([outXml], { type: "application/xml" }));
+    a.download = "UAC.SC2Bank"; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    setStatus($("genStatus"), "UAC.SC2Bank 파일을 저장했습니다. 뱅크 폴더의 기존 파일과 바꿔 넣으세요.");
+    return;
+  }
+  if (!downloads) return;
+  try { await downloads.save({ filename: "UAC.SC2Bank.txt", data: outXml }); setStatus($("genStatus"), "저장했습니다. 파일 이름 끝의 .txt를 지우고 뱅크 폴더에 넣으세요."); }
+  catch (e) { if (e?.code !== "declined") setStatus($("genStatus"), "저장하지 못했습니다. 복사 버튼을 쓰세요.", true); }
+};
+
+fill(UB.blankData(VER));
+})();
+
+</script>
