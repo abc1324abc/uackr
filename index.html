@@ -605,12 +605,24 @@ function load(xml, label) {
     $("owner").value = r.owners; savenum = r.header.savenum; fill(r.data);
     let msg = `${label}: ${r.owners} · 저장 ${savenum.toLocaleString()}회 · 데이터 블록 무결성 ${r.valid ? "정상" : "손상"} (게임 서명 검증과 별개)`;
     const author = $("author").value.trim();
-    if (author && r.signature) {
+    let signatureBad = false;
+    if (!r.signature) {
+      signatureBad = true;
+      msg += " · ⚠ 서명 없음 (Signature 누락)";
+    } else if (!author) {
+      msg += " · 서명 미검증 (제작자 핸들을 입력하세요)";
+    } else {
       const sec = { IBD: {}, IBH: { ID: r.owners, HEAD: r.values.HEAD } };
       for (const k of Object.keys(r.values)) if (k !== "ID" && k !== "HEAD") sec.IBD[k] = r.values[k];
-      msg += UB.signature(sec, author, r.owners, "UAC") === r.signature.toUpperCase() ? " · 서명 공식 일치 확인" : " · 서명 불일치 (제작자 핸들 또는 원본 XML 확인 필요)";
+      const actual = UB.signature(sec, author, r.owners, "UAC");
+      if (actual === r.signature.toUpperCase()) {
+        msg += " · ✓ 서명 일치";
+      } else {
+        signatureBad = true;
+        msg += " · ⚠ 서명 불일치! (제작자 핸들 또는 뱅크 내용 확인 필요)";
+      }
     }
-    setStatus($("loadStatus"), msg, !r.valid);
+    setStatus($("loadStatus"), msg, !r.valid || signatureBad);
   } catch (e) { setStatus($("loadStatus"), "불러오지 못했습니다: " + e.message, true); }
 }
 $("fileIn").addEventListener("change", e => {
