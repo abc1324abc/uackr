@@ -1080,7 +1080,7 @@
             function blankData(ver) {
                 const d = {};
                 for (const b of SCHEMA[ver].blocks)
-                    for (const [k, , n, fx] of b.fields) d[k] = n ? Array(n).fill(0) : (fx ? ? 0);
+                    for (const [k, , n, fx] of b.fields) d[k] = n ? Array(n).fill(0) : (fx ?? 0);
                 return d;
             }
 
