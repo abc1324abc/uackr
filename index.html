@@ -740,6 +740,22 @@
             </div>
         </section>
 
+        <section class="panel" aria-labelledby="h-fix">
+            <div class="ph"><span class="tag">03-1</span>
+                <h2 id="h-fix">자동 계산 · 보정</h2>
+                <span class="note">경험치는 판마다 목표·처치에 따라 달라서 맵에 고정된 값이 없습니다. 판당 평균 경험치는 불러온 뱅크의 (경험치 합 ÷ 판수)로 자동으로 채워지며 직접 바꿀 수 있습니다. 판수는 항상 모드별 승리 합계 이상으로 맞춥니다.</span></div>
+            <div class="grid">
+                <label class="f"><span>판당 평균 경험치</span><input id="xpPerGame" type="number" min="1" inputmode="numeric" value="1500"></label>
+            </div>
+            <label class="check"><input type="checkbox" id="autoFix" checked> 자동 보정 (경험치·계급·승리 수·업적을 바꾸면 판수와 기록을 바로 맞춤)</label>
+            <div class="row">
+                <button type="button" class="small" id="xpToGames">경험치로 판수 계산</button>
+                <button type="button" class="small" id="gamesToXp">판수로 경험치 계산</button>
+                <button type="button" class="small primary" id="achFix">업적에 맞게 기록 보정</button>
+            </div>
+            <div id="fixStatus" class="status" role="status"></div>
+        </section>
+
         <section class="panel" aria-labelledby="h-unl">
             <div class="ph"><span class="tag">04</span>
                 <h2 id="h-unl">해금</h2>
@@ -2730,6 +2746,7 @@ function load(xml, label) {
   try {
     const r = UB.decodeXML(xml);
     $("owner").value = r.owners; savenum = r.header.savenum; fill(r.data);
+    { const xs = r.data.experience.reduce((a, b) => a + b, 0); if (r.data.gamesPlayed > 0 && xs > 0) $("xpPerGame").value = Math.round(xs / r.data.gamesPlayed); }
     let msg = `${label}: ${r.owners} · 저장 ${savenum.toLocaleString()}회 · 데이터 블록 무결성 ${r.valid ? "정상" : "손상"} (게임 서명 검증과 별개)`;
     const author = $("author").value.trim();
     let signatureBad = false;
@@ -2793,6 +2810,102 @@ $("saveBtn").onclick = async () => {
   try { await downloads.save({ filename: "UAC.SC2Bank.txt", data: outXml }); setStatus($("genStatus"), "저장했습니다. 파일 이름 끝의 .txt를 지우세요. 서명이 없어 게임에서 거부될 수 있습니다."); }
   catch (e) { if (e?.code !== "declined") setStatus($("genStatus"), "저장하지 못했습니다. 복사 버튼을 쓰세요.", true); }
 };
+
+// ---------- 자동 계산 · 보정 ----------
+// 맵 gf_GetTotalGamesWon: 모드 1~14 중 6(미사용)·12(샌드박스) 제외 합계
+const totalWins = () => { let t = 0; for (let i = 1; i <= 14; i++) if (i !== 6 && i !== 12) t += Number($("w_" + (i - 1)).value) || 0; return t; };
+const allWins = () => { let t = 0; for (let i = 0; i < 15; i++) t += Number($("w_" + i).value) || 0; return t; };
+const xpSum = () => [0, 1, 2].reduce((a, i) => a + (Number($("xp_" + i).value) || 0), 0);
+const setXp = (i, v) => { $("xp_" + i).value = Math.min(33554431, Math.max(0, Math.round(v))); $("rk_" + i).value = rankFor(XP[i][1], Number($("xp_" + i).value)); };
+const perGame = () => Math.max(1, Number($("xpPerGame").value) || 1500);
+const clampGames = v => Math.min(65535, Math.max(0, Math.round(v)));
+function ensureGames(log) {
+  const achMin = $("u_achievements_9").checked ? 1000 : $("u_achievements_6").checked ? 250 : 0; // 업적 10 / 7
+  const need = Math.max(allWins(), achMin), g = Number($("s_gamesPlayed").value) || 0;
+  if (g < need) { $("s_gamesPlayed").value = clampGames(need); log.push(`판수 ${g} → ${need} (${need === achMin ? "업적 조건" : "승리 합계"} 이상)`); }
+}
+$("xpToGames").onclick = () => {
+  const log = [], g = clampGames(Math.ceil(xpSum() / perGame()));
+  $("s_gamesPlayed").value = g; log.push(`판수 ${g.toLocaleString()} (경험치 합 ${xpSum().toLocaleString()} ÷ ${perGame().toLocaleString()})`);
+  ensureGames(log); setStatus($("fixStatus"), log.join(" · "));
+};
+$("gamesToXp").onclick = () => {
+  const g = Number($("s_gamesPlayed").value) || 0, total = g * perGame(), cur = [0, 1, 2].map(i => Number($("xp_" + i).value) || 0), sum = cur.reduce((a, b) => a + b, 0);
+  [0, 1, 2].forEach(i => setXp(i, sum ? total * cur[i] / sum : (i === 0 ? total : 0)));
+  const xs = [0, 1, 2].map(i => Number($("xp_" + i).value) || 0), warn = [];
+  if ($("u_achievements_16").checked && Math.max(...xs) < 1000000) warn.push("업적 17(백만장자)");
+  if ($("u_achievements_17").checked && Math.min(...xs) < 500000) warn.push("업적 18(일류)");
+  setStatus($("fixStatus"), `경험치 합 ${xpSum().toLocaleString()} (판수 ${g.toLocaleString()} × ${perGame().toLocaleString()}, 기존 계급 체계 비율대로 나눔)` + (warn.length ? ` · ⚠ ${warn.join(", ")} 조건보다 낮습니다. '업적에 맞게 기록 보정'을 누르세요` : ""), warn.length > 0);
+};
+// 업적 → 최소 기록 (맵 Achievements.galaxy 조건 기준). w: {모드번호: 최소 승리}
+const ACH_MIN = {
+  3: { w: { 1: 1 } }, 4: { w: { 7: 1 } }, 5: { w: { 9: 1 } }, 6: { w: { 8: 1 } }, 7: { games: 250 }, 9: { total: 250 }, 10: { games: 1000 },
+  11: { w: { 8: 1 } }, 12: { revives: 1000 }, 13: { w: { 2: 10 } }, 14: { w: { 3: 10 } }, 15: { w: { 4: 10 } }, 16: { w: { 5: 10 } },
+  17: { xpAny: 1000000 }, 18: { xpAll: 500000 }, 20: { w: { 7: 100 } }, 21: { w: { 3: 1 } }, 22: { w: { 7: 1 } }, 23: { w: { 8: 50 } },
+  24: { w: { 3: 1 } }, 25: { w: { 8: 1 } }, 26: { w: { 9: 1 } }, 27: { w: { 3: 1 } }, 28: { w: { 3: 1 } }, 29: { w: { 4: 1 } },
+  30: { ach: [27, 28, 29] }, 31: { w: { 8: 1 } }, 32: { w: { 11: 1 } }, 33: { w: { 11: 1 } }, 34: { w: { 11: 1 } }, 35: { w: { 11: 1 } },
+  36: { ach: [32, 33, 34, 35] }, 37: { w: { 7: 1 } }, 38: { w: { 11: 10 } }, 39: { w: { 8: 1 } }, 42: { w: { 9: 1 } }, 43: { w: { 10: 1 } },
+  44: { w: { 10: 1 } }, 45: { w: { 14: 1 } }, 46: { w: { 14: 1 } }, 47: { w: { 9: 1 } }, 48: { w: { 9: 1 } }, 49: { w: { 7: 1 }, lone: true }, 50: { w: { 13: 1 } }
+};
+$("achFix").onclick = () => {
+  const log = [], has = n => $(`u_achievements_${n - 1}`).checked;
+  // 선행 업적 먼저 켜기 (30, 36)
+  for (const [n, r] of Object.entries(ACH_MIN)) if (r.ach && has(+n)) for (const p of r.ach) if (!has(p)) { $(`u_achievements_${p - 1}`).checked = true; log.push(`업적 ${p} 켬`); }
+  count("achievements");
+  const raiseW = (m, v) => { const el = $("w_" + (m - 1)), c = Number(el.value) || 0; if (c < v) { el.value = v; log.push(`${N.modes[m]} 승리 ${c} → ${v}`); } };
+  let games = 0, revives = 0, total = 0;
+  for (const [n, r] of Object.entries(ACH_MIN)) {
+    if (!has(+n)) continue;
+    if (r.w) for (const [m, v] of Object.entries(r.w)) raiseW(+m, v);
+    if (r.games) games = Math.max(games, r.games);
+    if (r.revives) revives = Math.max(revives, r.revives);
+    if (r.total) total = Math.max(total, r.total);
+    if (r.xpAll) [0, 1, 2].forEach(i => { const c = Number($("xp_" + i).value) || 0; if (c < r.xpAll) { setXp(i, r.xpAll); log.push(`${XP[i][0]} 경험치 → ${r.xpAll.toLocaleString()}`); } });
+    if (r.xpAny) { const cur = [0, 1, 2].map(i => Number($("xp_" + i).value) || 0); if (Math.max(...cur) < r.xpAny) { const i = cur.indexOf(Math.max(...cur)); setXp(i, r.xpAny); log.push(`${XP[i][0]} 경험치 → ${r.xpAny.toLocaleString()}`); } }
+    if (r.lone) { let c = 0; for (let i = 0; i < HERO_BITS; i++) if (!$(`u_loneWolfBits_${i}`).checked) { $(`u_loneWolfBits_${i}`).checked = true; c++; } if (c) { count("loneWolfBits"); log.push(`솔로 생존 기록 ${c}개 켬`); } }
+  }
+  if (total) { const t = totalWins(); if (t < total) { // 부족분은 승리가 가장 많은 모드에 더함 (없으면 생존)
+    let best = 7, bv = -1; for (let m = 1; m <= 14; m++) if (m !== 6 && m !== 12) { const v = Number($("w_" + (m - 1)).value) || 0; if (v > bv) { bv = v; best = m; } }
+    raiseW(best, (Number($("w_" + (best - 1)).value) || 0) + (total - t)); } }
+  const r0 = Number($("s_revives").value) || 0; if (r0 < revives) { $("s_revives").value = revives; log.push(`부활 ${r0} → ${revives}`); }
+  const g0 = Number($("s_gamesPlayed").value) || 0; if (g0 < games) { $("s_gamesPlayed").value = games; log.push(`판수 ${g0} → ${games}`); }
+  ensureGames(log);
+  const notes = [];
+  if (has(8)) notes.push("업적 8은 병과 전용 특성 15개 이상 필요");
+  if (has(19)) notes.push("업적 19는 위장 30개 이상 필요");
+  setStatus($("fixStatus"), (log.length ? "보정: " + log.join(" · ") : "바꿀 기록이 없습니다. 이미 업적 조건을 만족합니다.") + (notes.length ? " · 참고: " + notes.join(", ") : ""));
+};
+
+// 자동 보정: 입력이 바뀔 때마다 바로 계산
+const auto = () => $("autoFix").checked;
+function autoXp() { if (!auto()) return; const log = []; $("s_gamesPlayed").value = clampGames(Math.ceil(xpSum() / perGame())); ensureGames(log); setStatus($("fixStatus"), `자동: 판수 ${Number($("s_gamesPlayed").value).toLocaleString()} (경험치 합 ${xpSum().toLocaleString()} ÷ ${perGame().toLocaleString()})`); }
+[0, 1, 2].forEach(i => { $("xp_" + i).addEventListener("input", autoXp); $("rk_" + i).addEventListener("change", autoXp); });
+$("xpPerGame").addEventListener("input", autoXp);
+// 판수를 직접 바꾸면 경험치를 판수 × 평균으로 다시 계산 (입력을 마쳤을 때 실행)
+$("s_gamesPlayed").addEventListener("change", () => {
+  if (!auto()) return;
+  const log = []; ensureGames(log);
+  const g = Number($("s_gamesPlayed").value) || 0, total = g * perGame(), cur = [0, 1, 2].map(i => Number($("xp_" + i).value) || 0), sum = cur.reduce((a, b) => a + b, 0);
+  [0, 1, 2].forEach(i => setXp(i, sum ? total * cur[i] / sum : (i === 0 ? total : 0)));
+  // 켜 둔 업적 17·18 조건보다 낮아지면 최소값으로 올림
+  const xs = () => [0, 1, 2].map(i => Number($("xp_" + i).value) || 0);
+  if ($("u_achievements_17").checked) [0, 1, 2].forEach(i => { if (xs()[i] < 500000) { setXp(i, 500000); log.push(`${XP[i][0]} 경험치 → 500,000 (업적 18)`); } });
+  if ($("u_achievements_16").checked && Math.max(...xs()) < 1000000) { const i = xs().indexOf(Math.max(...xs())); setXp(i, 1000000); log.push(`${XP[i][0]} 경험치 → 1,000,000 (업적 17)`); }
+  const need = clampGames(Math.ceil(xpSum() / perGame()));
+  if (need > g) { $("s_gamesPlayed").value = need; log.push(`판수 ${g} → ${need} (올라간 경험치 기준)`); }
+  setStatus($("fixStatus"), `자동: 경험치 합 ${xpSum().toLocaleString()} (판수 ${g.toLocaleString()} × ${perGame().toLocaleString()})` + (log.length ? " · " + log.join(" · ") : ""));
+});
+$("modeBody").addEventListener("input", () => { if (!auto()) return; const log = []; ensureGames(log); if (log.length) setStatus($("fixStatus"), "자동: " + log.join(" · ")); });
+function autoAch() { // 업적 보정 후 늘어난 경험치에 맞춰 판수도 다시 계산
+  $("achFix").click();
+  const msg = $("fixStatus").textContent, log = [], g0 = Number($("s_gamesPlayed").value) || 0, g = clampGames(Math.ceil(xpSum() / perGame()));
+  if (g > g0) { $("s_gamesPlayed").value = g; log.push(`판수 ${g0} → ${g} (경험치 기준)`); }
+  ensureGames(log);
+  setStatus($("fixStatus"), "자동 " + msg + (log.length ? " · " + log.join(" · ") : ""));
+}
+$("unlocks").addEventListener("change", e => { if (auto() && e.target.dataset.k === "achievements") autoAch(); });
+$("allNoBeta").addEventListener("click", () => { if (auto()) autoAch(); });
+$("unlocks").addEventListener("click", e => { if (auto() && e.target.dataset.all === "achievements") autoAch(); });
 
 fill(UB.blankData(VER));
 })();
